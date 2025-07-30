@@ -1,49 +1,77 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
-def simular_proyectil(v0, angle, g=9.81, num_puntos=500):
+def simularProyectil3D(v0, elevacion, azimut, spin=0, g=9.81, num_puntos=500):
     """
-    Simula y grafica la trayectoria de un proyectil en 2D.
+    Simula y grafica la trayectoria de un proyectil en 3D considerando gravedad y efecto Magnus (spin).
     :param v0: Velocidad inicial (m/s)
-    :param angle: Ángulo de lanzamiento (grados)
+    :param elevacion: Ángulo de elevación (grados, respecto a la horizontal)
+    :param azimut: Ángulo azimutal (grados, 0=X+, 90=Y+)
+    :param spin: Magnitud del spin (rad/s) para efecto Magnus
     :param g: Aceleración gravitatoria (m/s^2)
     :param num_puntos: Número de puntos para graficar
     """
-    # Convertir ángulo a radianes
-    theta = np.radians(angle)
-    
-    # Calcular tiempo total de vuelo
-    t_total = (2 * v0 * np.sin(theta)) / g
-    
-    # Generar puntos de tiempo
+
+    # Conversión de ángulos a radianes
+    elev = np.radians(elevacion)
+    azim = np.radians(azimut)
+
+    # Componentes de velocidad inicial
+    v0x = v0 * np.cos(elev) * np.cos(azim)
+    v0y = v0 * np.cos(elev) * np.sin(azim)
+    v0z = v0 * np.sin(elev)
+
+    # Tiempo total de vuelo (usando el eje Z, vertical)
+    t_total = (2 * v0z) / g if g != 0 else 2  # Para que no falle si g=0
+
+    # Puntos de tiempo
     t = np.linspace(0, t_total, num_puntos)
-    
-    # Calcular posiciones
-    x = v0 * np.cos(theta) * t
-    y = v0 * np.sin(theta) * t - 0.5 * g * t**2
-    
-    # Encontrar alcance y altura máxima
-    x_max = v0**2 * np.sin(2 * theta) / g
-    y_max = (v0 * np.sin(theta))**2 / (2 * g)
-    
-    # Graficar trayectoria
-    plt.figure(figsize=(8, 6))
-    plt.plot(x, y, label=f'Trayectoria (v0={v0} m/s, θ={angle}°)')
-    plt.axhline(y_max, color='r', linestyle='--', label=f'Altura Máx: {y_max:.2f} m')
-    plt.axvline(x_max, color='g', linestyle='--', label=f'Alcance: {x_max:.2f} m')
-    plt.scatter([x_max], [0], color='g', marker='o')
-    plt.scatter([x[np.argmax(y)]], [y_max], color='r', marker='o')
-    plt.title('Simulación de Movimiento en 2D')
-    plt.xlabel('Distancia (m)')
-    plt.ylabel('Altura (m)')
-    plt.legend()
-    plt.grid(True)
+
+    # Parámetros del efecto Magnus (simplificado)
+    # Fuerza Magnus ~ k * (v × w), suponemos w = [0, 0, spin]
+    # Aceleración Magnus en XY perpendicular a v_xy
+    k = 0.03  # constante ajustable (depende de objeto y aire)
+    v_xy = np.array([v0x, v0y])
+    if np.linalg.norm(v_xy) != 0:
+        mag_dir = np.array([-v0y, v0x]) / np.linalg.norm(v_xy)  # dirección perpendicular a v_xy
+    else:
+        mag_dir = np.array([0,0])
+
+    # Aceleración Magnus constante para demostración
+    a_mag = k * spin * np.linalg.norm(v_xy)
+    ax_mag = a_mag * mag_dir[0]
+    ay_mag = a_mag * mag_dir[1]
+
+    # Posiciones en el tiempo
+    x = v0x * t + 0.5 * ax_mag * t**2
+    y = v0y * t + 0.5 * ay_mag * t**2
+    z = v0z * t - 0.5 * g * t**2
+
+    # Solo mostramos hasta que toca el suelo (z >= 0)
+    mask = z >= 0
+    x, y, z = x[mask], y[mask], z[mask]
+
+    # Graficar en 3D
+    fig = plt.figure(figsize=(10, 7))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot(x, y, z, label=f'Trayectoria (v0={v0} m/s, elev={elevacion}°, azim={azimut}°, spin={spin})')
+    ax.scatter([x[0]], [y[0]], [z[0]], color='green', s=60, label="Inicio")
+    ax.scatter([x[-1]], [y[-1]], [z[-1]], color='red', s=60, label="Fin")
+    ax.set_xlabel('X (m)')
+    ax.set_ylabel('Y (m)')
+    ax.set_zlabel('Z (Altura, m)')
+    ax.set_title('Simulación de Movimiento en 3D con Efecto Magnus')
+    ax.legend()
     plt.show()
 
-# Parámetros iniciales
-v0 = 10  # Velocidad inicial (m/s)
-angle = 90  # Ángulo de lanzamiento (grados)
+# Parámetros de ejemplo
+v0 = 25        # Velocidad inicial (m/s)
+elevacion = 45 # Ángulo de elevación (grados)
+azimut = 30    # Ángulo azimutal (grados)
+spin = 20      # Spin (rad/s, ajusta para ver el efecto)
 
-# Ejecutar simulación
-simular_proyectil(v0, angle)
+# Ejecutar simulación 3D
+simularProyectil3D(v0, elevacion, azimut, spin)
+
 
